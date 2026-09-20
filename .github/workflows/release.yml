@@ -36,6 +36,9 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
       - name: Setup Environment Files
         run: |
           if [ ! -f .env ]; then
@@ -44,11 +47,11 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          gradle testDebugUnitTest --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build Release APK
+      - name: Build Release & Debug APK
         run: |
-          gradle assembleRelease --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace || ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Verify and Package APK
         run: |

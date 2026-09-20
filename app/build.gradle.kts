@@ -24,18 +24,40 @@ android {
   }
 
   signingConfigs {
+    val keystoreEnv = System.getenv("KEYSTORE_PATH")
+    val customFile = keystoreEnv?.let { file(it) }
+    val uploadFile = file("${rootDir}/my-upload-key.jks")
+    val debugFile = file("${rootDir}/debug.keystore")
+
+    val hasCustomKeystore = customFile?.exists() == true
+    val hasUploadKeystore = uploadFile.exists()
+    val hasDebugKeystore = debugFile.exists()
+
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      if (hasCustomKeystore) {
+        storeFile = customFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      } else if (hasUploadKeystore) {
+        storeFile = uploadFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: ""
+        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+      } else if (hasDebugKeystore) {
+        storeFile = debugFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
     }
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
+      if (hasDebugKeystore) {
+        storeFile = debugFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
     }
   }
 
@@ -44,7 +66,12 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      val relConfig = signingConfigs.getByName("release")
+      if (relConfig.storeFile?.exists() == true) {
+        signingConfig = relConfig
+      } else {
+        signingConfig = signingConfigs.getByName("debugConfig")
+      }
     }
     debug { signingConfig = signingConfigs.getByName("debugConfig") }
   }
