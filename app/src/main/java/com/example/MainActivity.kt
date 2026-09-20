@@ -111,6 +111,12 @@ fun MathBrawlApp(viewModel: GameViewModel) {
                         viewModel.navigateTo(GameScreen.MAIN_MENU)
                     },
                     onOpenAuth = { viewModel.navigateTo(GameScreen.AUTH) },
+                    onUpdateDisplayName = { newName ->
+                        viewModel.authManager.updateDisplayName(newName)
+                    },
+                    onGoogleSignIn = {
+                        viewModel.authManager.signInWithGoogle()
+                    },
                     onNavigateBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                 )
             }

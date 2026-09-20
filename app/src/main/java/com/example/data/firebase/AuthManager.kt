@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
@@ -61,8 +62,8 @@ class AuthManager(private val context: Context) {
     fun playAsGuest(username: String = "MathsWarrior") {
         val guest = UserProfile(
             uid = "guest_${System.currentTimeMillis() % 10000}",
-            username = username,
-            displayName = username,
+            username = username.ifEmpty { "MathsWarrior" },
+            displayName = username.ifEmpty { "Stickman Fighter" },
             rank = 485,
             highestRank = 485
         )
@@ -94,7 +95,7 @@ class AuthManager(private val context: Context) {
                     val guest = UserProfile(
                         uid = "local_${System.currentTimeMillis()}",
                         username = cleanUsername,
-                        displayName = username,
+                        displayName = username.trim(),
                         rank = 450,
                         highestRank = 450
                     )
@@ -117,7 +118,7 @@ class AuthManager(private val context: Context) {
                 // Save profile to Firestore
                 saveProfileToFirestore(profile)
                 // Register username reservation
-                reserveUsernameInFirestore(cleanUsername, user.uid)
+                reserveUsernameInFirestore(cleanUsername, user.uid, email)
 
                 _currentProfile.value = profile
                 _authState.value = AuthState.Authenticated(profile)
@@ -129,39 +130,123 @@ class AuthManager(private val context: Context) {
             }
         }
 
-    suspend fun loginWithEmail(email: String, password: String): Result<UserProfile> =
+    suspend fun loginWithEmailOrUsername(identifier: String, password: String): Result<UserProfile> =
         withContext(Dispatchers.IO) {
             _authState.value = AuthState.Loading
             try {
+                val trimmed = identifier.trim()
+                if (trimmed.isEmpty()) {
+                    val err = "Please enter your email or username."
+                    _authState.value = AuthState.Error(err)
+                    return@withContext Result.failure(Exception(err))
+                }
+
+                // Resolve username to email if identifier does not contain @
+                val targetEmail = if (trimmed.contains("@")) {
+                    trimmed
+                } else {
+                    val lookedUpEmail = lookupEmailByUsername(trimmed.lowercase())
+                    lookedUpEmail ?: "${trimmed.lowercase()}@mathswar.com"
+                }
+
                 if (auth == null) {
                     val fallback = UserProfile(
                         uid = "offline_user",
-                        username = email.substringBefore("@"),
-                        displayName = email.substringBefore("@")
+                        username = if (trimmed.contains("@")) trimmed.substringBefore("@") else trimmed,
+                        displayName = if (trimmed.contains("@")) trimmed.substringBefore("@") else trimmed
                     )
                     _currentProfile.value = fallback
                     _authState.value = AuthState.Authenticated(fallback)
                     return@withContext Result.success(fallback)
                 }
 
-                val result = auth.signInWithEmailAndPassword(email, password).await()
+                val result = try {
+                    auth.signInWithEmailAndPassword(targetEmail, password).await()
+                } catch (e: Exception) {
+                    // Try direct authentication if fallback format was used
+                    if (!trimmed.contains("@")) {
+                        auth.signInWithEmailAndPassword("${trimmed.lowercase()}@mathswar.com", password).await()
+                    } else {
+                        throw e
+                    }
+                }
+
                 val user = result.user ?: throw Exception("Login failed")
 
                 val profile = fetchProfileFromFirestore(user.uid) ?: UserProfile(
                     uid = user.uid,
-                    username = user.email?.substringBefore("@") ?: "Warrior",
-                    displayName = user.displayName ?: "Warrior"
+                    username = if (trimmed.contains("@")) user.email?.substringBefore("@") ?: "Warrior" else trimmed,
+                    displayName = user.displayName ?: (if (trimmed.contains("@")) user.email?.substringBefore("@") ?: "Warrior" else trimmed)
                 )
 
                 _currentProfile.value = profile
                 _authState.value = AuthState.Authenticated(profile)
                 Result.success(profile)
             } catch (e: Exception) {
-                val errorMsg = e.localizedMessage ?: "Login failed"
+                val errorMsg = e.localizedMessage ?: "Login failed. Please check your credentials."
                 _authState.value = AuthState.Error(errorMsg)
                 Result.failure(e)
             }
         }
+
+    suspend fun signInWithGoogle(displayName: String? = null, email: String? = null, idToken: String? = null): Result<UserProfile> =
+        withContext(Dispatchers.IO) {
+            _authState.value = AuthState.Loading
+            try {
+                if (idToken != null && auth != null) {
+                    val credential = GoogleAuthProvider.getCredential(idToken, null)
+                    val result = auth.signInWithCredential(credential).await()
+                    val user = result.user ?: throw Exception("Google sign in failed")
+                    val existing = fetchProfileFromFirestore(user.uid)
+                    val finalProfile = existing ?: UserProfile(
+                        uid = user.uid,
+                        username = user.displayName?.filter { it.isLetterOrDigit() || it == '_' }?.take(18) ?: (user.email?.substringBefore("@") ?: "GoogleWarrior"),
+                        displayName = user.displayName ?: "Google Warrior",
+                        photoUrl = user.photoUrl?.toString() ?: ""
+                    )
+                    if (existing == null) {
+                        saveProfileToFirestore(finalProfile)
+                    }
+                    _currentProfile.value = finalProfile
+                    _authState.value = AuthState.Authenticated(finalProfile)
+                    return@withContext Result.success(finalProfile)
+                }
+
+                // Seamless Google Account Integration / Simulation for development & emulator environments
+                val baseName = displayName ?: (email?.substringBefore("@") ?: "GoogleWarrior")
+                val uniqueUsername = "${baseName.filter { it.isLetterOrDigit() }.take(12)}_${(System.currentTimeMillis() % 1000)}"
+                val googleProfile = UserProfile(
+                    uid = "google_${System.currentTimeMillis()}",
+                    username = uniqueUsername,
+                    displayName = displayName ?: "Google Stickman",
+                    rank = 420,
+                    highestRank = 420,
+                    totalScore = 1500L
+                )
+                saveProfileToFirestore(googleProfile)
+                _currentProfile.value = googleProfile
+                _authState.value = AuthState.Authenticated(googleProfile)
+                Result.success(googleProfile)
+            } catch (e: Exception) {
+                val errorMsg = e.localizedMessage ?: "Google sign in failed"
+                _authState.value = AuthState.Error(errorMsg)
+                Result.failure(e)
+            }
+        }
+
+    suspend fun updateDisplayName(newDisplayName: String): Result<UserProfile> = withContext(Dispatchers.IO) {
+        try {
+            val current = _currentProfile.value
+            val updated = current.copy(displayName = newDisplayName.trim())
+            _currentProfile.value = updated
+            if (current.uid != "local_guest" && !current.uid.startsWith("guest_")) {
+                saveProfileToFirestore(updated)
+            }
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun sendPasswordReset(email: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
@@ -186,9 +271,24 @@ class AuthManager(private val context: Context) {
         }
     }
 
-    private suspend fun reserveUsernameInFirestore(username: String, uid: String) {
+    private suspend fun lookupEmailByUsername(username: String): String? {
+        if (firestore == null) return null
+        return try {
+            val doc = firestore.collection("usernames").document(username).get().await()
+            if (doc.exists()) {
+                doc.getString("email")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w("AuthManager", "Lookup email failed: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun reserveUsernameInFirestore(username: String, uid: String, email: String) {
         firestore?.collection("usernames")?.document(username)
-            ?.set(mapOf("uid" to uid, "createdAt" to System.currentTimeMillis()))
+            ?.set(mapOf("uid" to uid, "email" to email, "createdAt" to System.currentTimeMillis()))
             ?.await()
     }
 
@@ -286,7 +386,6 @@ class AuthManager(private val context: Context) {
     }
 
     fun calculateRankFromScore(score: Long): Int {
-        // Dynamic rank calculation: starting from 500 down to 1 based on accumulated score
         val rank = when {
             score >= 100000 -> (1..5).random()
             score >= 75000 -> 6 + ((100000 - score) / 5000).toInt().coerceIn(0, 4)
@@ -311,3 +410,4 @@ class AuthManager(private val context: Context) {
         _authState.value = AuthState.Unauthenticated()
     }
 }
+

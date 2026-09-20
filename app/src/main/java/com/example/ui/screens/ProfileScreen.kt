@@ -24,15 +24,25 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,17 +55,82 @@ import androidx.compose.ui.unit.sp
 import com.example.data.firebase.RankTier
 import com.example.data.firebase.UserProfile
 import com.example.ui.components.ArcadeButton
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
     profile: UserProfile,
     onSignOut: () -> Unit,
     onOpenAuth: () -> Unit,
+    onUpdateDisplayName: (suspend (String) -> Unit)? = null,
+    onGoogleSignIn: (suspend () -> Unit)? = null,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val rankTier = RankTier.fromRank(profile.rank)
     val isGuest = profile.uid.startsWith("guest_") || profile.uid == "local_guest"
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editedName by remember { mutableStateOf(profile.displayName) }
+
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (editedName.isNotBlank() && onUpdateDisplayName != null) {
+                            coroutineScope.launch {
+                                onUpdateDisplayName(editedName.trim())
+                                showEditDialog = false
+                            }
+                        } else {
+                            showEditDialog = false
+                        }
+                    }
+                ) {
+                    Text("SAVE", color = Color(0xFFE67E22), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) {
+                    Text("CANCEL", color = Color(0xFF8A8D98))
+                }
+            },
+            title = {
+                Text(
+                    text = "EDIT DISPLAY NAME",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Enter your public battle handle:",
+                        color = Color(0xFF8A8D98),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    OutlinedTextField(
+                        value = editedName,
+                        onValueChange = { editedName = it.take(24) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFFE67E22),
+                            unfocusedBorderColor = Color(0x556B7280),
+                            focusedTextColor = Color(0xFFF0F0F5),
+                            unfocusedTextColor = Color(0xFFF0F0F5)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("edit_profile_name_input")
+                    )
+                }
+            },
+            containerColor = Color(0xFF14161E),
+            titleContentColor = Color(0xFFF0F0F5)
+        )
+    }
 
     Box(
         modifier = modifier
@@ -107,22 +182,22 @@ fun ProfileScreen(
             // Left Panel: Identity & Competitive Rank Card
             Column(
                 modifier = Modifier
-                    .weight(0.9f)
+                    .weight(0.95f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xD014161E))
                     .border(1.dp, Color(0x356B7280), RoundedCornerShape(12.dp))
-                    .padding(16.dp),
+                    .padding(14.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 // Identity Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(50.dp)
                             .clip(CircleShape)
                             .background(Color(rankTier.colorHex)),
                         contentAlignment = Alignment.Center
@@ -130,24 +205,46 @@ fun ProfileScreen(
                         Text(
                             text = profile.username.take(2).uppercase(),
                             color = Color(0xFF0D0E12),
-                            fontSize = 20.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Black,
                             fontFamily = FontFamily.Monospace
                         )
                     }
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = profile.displayName.ifEmpty { profile.username },
+                                color = Color(0xFFF0F0F5),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            IconButton(
+                                onClick = {
+                                    editedName = profile.displayName.ifEmpty { profile.username }
+                                    showEditDialog = true
+                                },
+                                modifier = Modifier.size(24.dp).testTag("btn_edit_profile")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Display Name",
+                                    tint = Color(0xFF8A8D98),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
                         Text(
-                            text = profile.username,
-                            color = Color(0xFFF0F0F5),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
+                            text = "@${profile.username}",
+                            color = Color(0xFF8A8D98),
+                            fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
                         Text(
-                            text = if (isGuest) "GUEST ACCOUNT (UNSYNCED)" else "FIREBASE SYNCHRONIZED",
+                            text = if (isGuest) "GUEST (OFFLINE / UNSYNCED)" else "FIREBASE SYNCHRONIZED",
                             color = if (isGuest) Color(0xFFE67E22) else Color(0xFF27AE60),
-                            fontSize = 9.sp,
+                            fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -161,59 +258,74 @@ fun ProfileScreen(
                         .clip(RoundedCornerShape(10.dp))
                         .background(Color(0x25E67E22))
                         .border(1.dp, Color(rankTier.colorHex), RoundedCornerShape(10.dp))
-                        .padding(12.dp),
+                        .padding(10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
                         text = "COMPETITIVE STANDING",
                         color = Color(0xFFB0B3BC),
-                        fontSize = 9.sp,
+                        fontSize = 8.sp,
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "#${profile.rank}",
                         color = Color(rankTier.colorHex),
-                        fontSize = 28.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
                     )
                     Text(
                         text = rankTier.title,
                         color = Color(0xFFF0F0F5),
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     LinearProgressIndicator(
                         progress = { (profile.xp % 500) / 500f },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
+                            .height(5.dp)
                             .clip(RoundedCornerShape(3.dp)),
                         color = Color(rankTier.colorHex),
                         trackColor = Color(0xFF1C1E26)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "NEXT RANK LEVEL: ${500 - (profile.xp % 500)} XP NEEDED",
+                        text = "LVL ${profile.level} • ${500 - (profile.xp % 500)} XP TO NEXT RANK",
                         color = Color(0xFF8A8D98),
-                        fontSize = 8.sp,
+                        fontSize = 7.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
 
-                // Action Buttons (Login / Sign Out)
+                // Action Buttons (Login / Google / Sign Out)
                 if (isGuest) {
-                    ArcadeButton(
-                        text = "LINK / SIGN IN",
-                        onClick = onOpenAuth,
-                        modifier = Modifier.fillMaxWidth(),
-                        primaryColor = Color(0xFFE67E22),
-                        testTag = "profile_btn_link_auth"
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (onGoogleSignIn != null) {
+                            ArcadeButton(
+                                text = "SIGN IN WITH GOOGLE",
+                                onClick = {
+                                    coroutineScope.launch {
+                                        onGoogleSignIn()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                primaryColor = Color(0xFF1E293B),
+                                testTag = "profile_btn_google_signin"
+                            )
+                        }
+                        ArcadeButton(
+                            text = "EMAIL / USERNAME LOGIN",
+                            onClick = onOpenAuth,
+                            modifier = Modifier.fillMaxWidth(),
+                            primaryColor = Color(0xFFE67E22),
+                            testTag = "profile_btn_link_auth"
+                        )
+                    }
                 } else {
                     ArcadeButton(
                         text = "SIGN OUT",
@@ -229,12 +341,12 @@ fun ProfileScreen(
             // Right Panel: Combat Statistics & Unlocked Martial Arts
             Column(
                 modifier = Modifier
-                    .weight(1.1f)
+                    .weight(1.05f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xD014161E))
                     .border(1.dp, Color(0x356B7280), RoundedCornerShape(12.dp))
-                    .padding(16.dp)
+                    .padding(14.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -278,7 +390,22 @@ fun ProfileScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MetricBox(
+                        title = "GAMES PLAYED",
+                        value = "${profile.gamesPlayed}",
+                        color = Color(0xFF9B59B6),
+                        modifier = Modifier.weight(1f)
+                    )
+                    MetricBox(
+                        title = "PEAK RANK",
+                        value = "#${profile.highestRank}",
+                        color = Color(0xFFE67E22),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
                     text = "MATHEMATICAL COMBAT POWERS",
@@ -314,11 +441,11 @@ private fun MetricBox(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(Color(0xFF0D0E12))
-            .padding(10.dp)
+            .padding(8.dp)
     ) {
         Text(text = title, color = Color(0xFF8A8D98), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
         Spacer(modifier = Modifier.height(2.dp))
-        Text(text = value, color = color, fontSize = 14.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
+        Text(text = value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black, fontFamily = FontFamily.Monospace)
     }
 }
 
@@ -360,3 +487,4 @@ private fun PowerBadge(
         )
     }
 }
+

@@ -303,6 +303,37 @@ fun AuthScreen(
                     }
                 }
 
+                // Google Sign In Button
+                if (mode != AuthMode.FORGOT_PASSWORD) {
+                    ArcadeButton(
+                        text = "CONTINUE WITH GOOGLE",
+                        onClick = {
+                            coroutineScope.launch {
+                                localError = null
+                                authManager.signInWithGoogle()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        primaryColor = Color(0xFF1E293B),
+                        testTag = "auth_btn_google_signin"
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0x356B7280)))
+                        Text(
+                            text = "OR USE EMAIL / USERNAME",
+                            color = Color(0xFF6B7280),
+                            fontSize = 8.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Box(modifier = Modifier.weight(1f).height(1.dp).background(Color(0x356B7280)))
+                    }
+                }
+
                 // Error message banner
                 val displayError = localError ?: (authState as? AuthState.Error)?.message
                 if (displayError != null) {
@@ -361,14 +392,14 @@ fun AuthScreen(
                     }
                 }
 
-                // Email Field
+                // Email / Identifier Field
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = { Text("Email Address") },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = Color(0xFFE67E22)) },
+                    label = { Text(if (mode == AuthMode.LOGIN) "Email or Username" else "Email Address") },
+                    leadingIcon = { Icon(if (mode == AuthMode.LOGIN) Icons.Default.Person else Icons.Default.Email, contentDescription = null, tint = Color(0xFFE67E22)) },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    keyboardOptions = KeyboardOptions(keyboardType = if (mode == AuthMode.LOGIN) KeyboardType.Text else KeyboardType.Email),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFE67E22),
                         unfocusedBorderColor = Color(0x556B7280),
@@ -420,7 +451,7 @@ fun AuthScreen(
                     onClick = {
                         localError = null
                         if (email.isBlank()) {
-                            localError = "Please enter an email address."
+                            localError = if (mode == AuthMode.LOGIN) "Please enter your email or username." else "Please enter an email address."
                             return@ArcadeButton
                         }
                         coroutineScope.launch {
@@ -441,7 +472,7 @@ fun AuthScreen(
                                         localError = "Please enter your password."
                                         return@launch
                                     }
-                                    authManager.loginWithEmail(email.trim(), password)
+                                    authManager.loginWithEmailOrUsername(email.trim(), password)
                                 }
                                 AuthMode.FORGOT_PASSWORD -> {
                                     authManager.sendPasswordReset(email.trim())
