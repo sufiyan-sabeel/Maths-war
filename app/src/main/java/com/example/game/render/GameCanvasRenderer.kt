@@ -52,7 +52,8 @@ object GameCanvasRenderer {
     fun render(
         drawScope: DrawScope,
         snapshot: GameStateSnapshot,
-        animTick: Float
+        animTick: Float,
+        showCollisionDebug: Boolean = false
     ) {
         val width = drawScope.size.width
         val height = drawScope.size.height
@@ -73,8 +74,8 @@ object GameCanvasRenderer {
             drawScope.scale(zoom, zoom, Offset.Zero) {
                 drawScope.translate(-cam.pos.x, -cam.pos.y) {
 
-                    // 2. Render Mathematical Arena
-                    drawMathematicalArena(drawScope, animTick)
+                    // 2. Render Mathematical Arena based on ArenaType
+                    drawMathematicalArena(drawScope, snapshot.arenaType, animTick)
 
                     // 3. Render Enemies (Soldiers or Monsters)
                     for (enemy in snapshot.enemies) {
@@ -102,21 +103,78 @@ object GameCanvasRenderer {
                     for (p in snapshot.particles) {
                         drawParticle(drawScope, p)
                     }
+
+                    // 8. Debug Collision Outlines
+                    if (showCollisionDebug) {
+                        val playerHurt = snapshot.player.hurtbox
+                        drawScope.drawRect(
+                            color = Color.Green,
+                            topLeft = Offset(playerHurt.left, playerHurt.top),
+                            size = Size(playerHurt.width, playerHurt.height),
+                            style = Stroke(width = 2f)
+                        )
+
+                        val playerAtk = snapshot.player.attackHitbox
+                        if (playerAtk != null) {
+                            drawScope.drawRect(
+                                color = Color(0xFFFF9800),
+                                topLeft = Offset(playerAtk.left, playerAtk.top),
+                                size = Size(playerAtk.width, playerAtk.height),
+                                style = Stroke(width = 2f)
+                            )
+                        }
+
+                        for (enemy in snapshot.enemies) {
+                            if (!enemy.isDead) {
+                                val eHurt = enemy.hurtbox
+                                drawScope.drawRect(
+                                    color = Color.Red,
+                                    topLeft = Offset(eHurt.left, eHurt.top),
+                                    size = Size(eHurt.width, eHurt.height),
+                                    style = Stroke(width = 2f)
+                                )
+                                val eAtk = enemy.attackHitbox
+                                if (eAtk != null) {
+                                    drawScope.drawRect(
+                                        color = Color.Yellow,
+                                        topLeft = Offset(eAtk.left, eAtk.top),
+                                        size = Size(eAtk.width, eAtk.height),
+                                        style = Stroke(width = 2f)
+                                    )
+                                }
+                            }
+                        }
+
+                        for (proj in snapshot.projectiles) {
+                            val pHit = proj.hitbox
+                            drawScope.drawRect(
+                                color = Color.Cyan,
+                                topLeft = Offset(pHit.left, pHit.top),
+                                size = Size(pHit.width, pHit.height),
+                                style = Stroke(width = 1.5f)
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 
-    private fun drawMathematicalArena(drawScope: DrawScope, animTick: Float) {
+    private fun drawMathematicalArena(
+        drawScope: DrawScope,
+        arenaType: com.example.game.model.ArenaType,
+        animTick: Float
+    ) {
         val groundY = 720f
         val left = -400f
         val right = 2200f
+        val native = drawScope.drawContext.canvas.nativeCanvas
 
-        // Subtle Mathematical Grid
+        // Base Grid
         val gridStep = 80f
         for (x in -400..2200 step 80) {
             drawScope.drawLine(
-                color = Color(0x0CFFFFFF),
+                color = Color(0x0AFFFFFF),
                 start = Offset(x.toFloat(), -200f),
                 end = Offset(x.toFloat(), 1000f),
                 strokeWidth = 1f
@@ -124,11 +182,108 @@ object GameCanvasRenderer {
         }
         for (y in -200..1000 step 80) {
             drawScope.drawLine(
-                color = Color(0x0CFFFFFF),
+                color = Color(0x0AFFFFFF),
                 start = Offset(left, y.toFloat()),
                 end = Offset(right, y.toFloat()),
                 strokeWidth = 1f
             )
+        }
+
+        // Arena-Specific Architectural Features
+        when (arenaType) {
+            com.example.game.model.ArenaType.NUMBER_LAB -> {
+                // Cartesian numbers and coordinate pulses
+                native.drawText("f(x) = ∑ aₙ · 10ⁿ", 200f, 260f, bgEqPaint)
+                native.drawText("ℕ = {0, 1, 2, 3, ...} ⊂ ℤ", 900f, 320f, bgEqPaint)
+                native.drawText("GCD(a, b) · LCM(a, b) = |a·b|", 1300f, 420f, bgEqPaint)
+            }
+            com.example.game.model.ArenaType.EQUATION_FACTORY -> {
+                // Mechanical pipeline gears and formula conduits
+                native.drawText("W = ∫ F · ds   //   P = dW/dt", 180f, 240f, bgEqPaint)
+                native.drawText("E² = (pc)² + (m₀c²)²", 850f, 300f, bgEqPaint)
+                native.drawText("∂ρ/∂t + ∇ · (ρv) = 0", 1350f, 400f, bgEqPaint)
+                // Industrial pipeline line
+                drawScope.drawLine(
+                    color = Color(0x1AD35400),
+                    start = Offset(left, 480f),
+                    end = Offset(right, 480f),
+                    strokeWidth = 4f
+                )
+            }
+            com.example.game.model.ArenaType.GEOMETRY_RUINS -> {
+                // Euclidean pillars and golden ratio spiral
+                native.drawText("a² + b² = c²   //   φ = (1 + √5)/2 ≈ 1.618", 220f, 260f, bgEqPaint)
+                native.drawText("A = ½ab·sin(C)   //   V = ⁴⁄₃πr³", 920f, 340f, bgEqPaint)
+                // Golden spiral arc
+                val spiralPath = Path()
+                spiralPath.moveTo(600f, 400f)
+                spiralPath.cubicTo(680f, 350f, 750f, 460f, 850f, 380f)
+                drawScope.drawPath(spiralPath, Color(0x18D4A373), style = Stroke(width = 2f))
+            }
+            com.example.game.model.ArenaType.ALGEBRA_CITY -> {
+                // Matrix monoliths and determinant formulas
+                native.drawText("det(A - λI) = 0   //   Ax = b", 240f, 250f, bgEqPaint)
+                native.drawText("x = [-b ± √(b² - 4ac)] / 2a", 880f, 330f, bgEqPaint)
+                native.drawText("rank(A) + nullity(A) = n", 1380f, 440f, bgEqPaint)
+            }
+            com.example.game.model.ArenaType.INFINITE_GRID -> {
+                // Pure Cartesian coordinate axes
+                native.drawText("ℝ² = (-∞, +∞) × (-∞, +∞)", 280f, 240f, bgEqPaint)
+                native.drawText("x² + y² = r²   //   (x-h)² + (y-k)² = r²", 960f, 320f, bgEqPaint)
+                // Center origin indicator
+                drawScope.drawCircle(
+                    color = Color(0x22E67E22),
+                    radius = 120f,
+                    center = Offset(800f, 500f),
+                    style = Stroke(width = 1.5f)
+                )
+            }
+            com.example.game.model.ArenaType.FUNCTION_CHAMBER -> {
+                // Dual sine and cosine waveforms
+                val cosPath = Path()
+                var firstCos = true
+                for (x in -200..1800 step 20) {
+                    val waveY = groundY - 320f + kotlin.math.cos(x * 0.009f + animTick * 2.0f) * 50f
+                    if (firstCos) {
+                        cosPath.moveTo(x.toFloat(), waveY)
+                        firstCos = false
+                    } else {
+                        cosPath.lineTo(x.toFloat(), waveY)
+                    }
+                }
+                drawScope.drawPath(cosPath, Color(0x14CCD1D9), style = Stroke(width = 2f))
+                native.drawText("f(x) = A·sin(ωt + φ) + B·cos(ωt)", 200f, 230f, bgEqPaint)
+                native.drawText("tan(θ) = sin(θ) / cos(θ)", 920f, 310f, bgEqPaint)
+            }
+            com.example.game.model.ArenaType.GRAVITY_ARENA -> {
+                // Curved spacetime warping grid dipping towards center
+                val curvePath = Path()
+                curvePath.moveTo(left, 500f)
+                curvePath.quadraticTo(800f, 620f, right, 500f)
+                drawScope.drawPath(curvePath, Color(0x20D4A373), style = Stroke(width = 2.5f))
+                native.drawText("G_μν + Λg_μν = (8πG/c⁴) T_μν", 300f, 250f, bgEqPaint)
+                native.drawText("g = GM / r²   //   v_esc = √(2GM/r)", 950f, 330f, bgEqPaint)
+            }
+            com.example.game.model.ArenaType.FINAL_EQUATION_CORE -> {
+                // Cosmic Singularity: rotating concentric formula rings
+                val coreX = 800f
+                val coreY = 400f
+                val ringPulse = 180f + sin(animTick * 3f) * 15f
+                drawScope.drawCircle(
+                    color = Color(0x15E67E22),
+                    radius = ringPulse,
+                    center = Offset(coreX, coreY)
+                )
+                drawScope.drawCircle(
+                    color = Color(0x2AE67E22),
+                    radius = ringPulse * 0.7f,
+                    center = Offset(coreX, coreY),
+                    style = Stroke(width = 2f)
+                )
+                native.drawText("e^(iπ) + 1 = 0", 250f, 220f, bgEqPaint)
+                native.drawText("∫_{-∞}^{+∞} e^(-x²) dx = √π", 880f, 280f, bgEqPaint)
+                native.drawText("∑_{n=1}^{∞} (1/n²) = π²/6", 1300f, 380f, bgEqPaint)
+            }
         }
 
         // Animated Function Graph Waveform in subtle earth-tone amber
@@ -148,13 +303,6 @@ object GameCanvasRenderer {
             color = Color(0x18E67E22),
             style = Stroke(width = 2.0f)
         )
-
-        // Mathematical background equations
-        val native = drawScope.drawContext.canvas.nativeCanvas
-        native.drawText("f(x) = ∑ [A_n · sin(nωt)]", 200f, 320f, bgEqPaint)
-        native.drawText("e^(iπ) + 1 = 0", 800f, 250f, bgEqPaint)
-        native.drawText("lim_{Δx→0} [f(x+Δx) - f(x)] / Δx", 1200f, 360f, bgEqPaint)
-        native.drawText("∇ × B = μ₀J + μ₀ε₀(∂E/∂t)", 450f, 520f, bgEqPaint)
 
         // Ground Line (Clean graphite axis)
         drawScope.drawLine(

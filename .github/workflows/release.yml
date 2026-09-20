@@ -31,7 +31,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -49,20 +51,20 @@ jobs:
         run: |
           ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
-      - name: Build Release & Debug APK
+      - name: Build Release APK
         run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace || ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Verify and Package APK
         run: |
           mkdir -p release-artifacts
-          APK_FILE=$(find app/build/outputs/apk -type f -name "*.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: No APK was produced during build!"
+          APK_RELEASE=$(find app/build/outputs/apk/release -type f -name "*.apk" 2>/dev/null | head -n 1)
+          if [ -z "$APK_RELEASE" ]; then
+            echo "ERROR: No release APK was produced during build!"
             exit 1
           fi
-          echo "Found APK: $APK_FILE"
-          cp "$APK_FILE" release-artifacts/Maths-War-v1.0.0.apk
+          echo "Found Release APK: $APK_RELEASE"
+          cp "$APK_RELEASE" release-artifacts/Maths-War-v1.0.0.apk
           ls -lh release-artifacts/Maths-War-v1.0.0.apk
 
       - name: Upload APK Artifact
@@ -70,6 +72,7 @@ jobs:
         with:
           name: Maths-War-v1.0.0-APK
           path: release-artifacts/Maths-War-v1.0.0.apk
+          if-no-files-found: error
           retention-days: 30
 
       - name: Create GitHub Release

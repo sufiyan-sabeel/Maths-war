@@ -1,5 +1,8 @@
 package com.example.game.engine
 
+import com.example.game.levels.LevelDefinition
+import com.example.game.levels.LevelDefinitions
+import com.example.game.model.ArenaType
 import com.example.game.model.CameraState
 import com.example.game.model.EnemyType
 import com.example.game.model.ImpactEffect
@@ -38,7 +41,16 @@ data class GameStateSnapshot(
     val score: Long,
     val isGameOver: Boolean,
     val isVictory: Boolean,
-    val isBossActive: Boolean
+    val isBossActive: Boolean,
+    val levelNumber: Int = 1,
+    val chapter: Int = 1,
+    val chapterTitle: String = "CHAPTER 1",
+    val levelTitle: String = "FIRST DIGITS",
+    val levelSubtitle: String = "NUMERAL AWAKENING",
+    val arenaType: ArenaType = ArenaType.NUMBER_LAB,
+    val newFeatureIntro: String = "",
+    val targetScoreFor3Stars: Long = 1000L,
+    val levelElapsedSec: Float = 0f
 )
 
 class GameEngine {
@@ -68,6 +80,10 @@ class GameEngine {
     var isPaused: Boolean = false
     var isGameOver: Boolean = false
     var isVictory: Boolean = false
+    var levelElapsedSec: Float = 0f
+    private var lastRecordedClearedWave: Int = -1
+
+    var onLevelCompletedCallback: ((levelNum: Int, stars: Int, score: Long, timeSec: Float) -> Unit)? = null
 
     init {
         resetGame()
@@ -91,12 +107,24 @@ class GameEngine {
         isVictory = false
         isPaused = false
         score = 0L
+        levelElapsedSec = 0f
+        lastRecordedClearedWave = -1
+
+        camera.state.pos = Vec2(350f, physics.groundY - 120f)
+        camera.state.zoom = 1.0f
+        camera.state.targetZoom = 1.0f
+        camera.state.shakeTimer = 0f
+        camera.state.shakeIntensity = 0f
 
         waveManager.startWave(startWave, audio)
+        physics.gravityModifier = waveManager.currentLevelDef.gravityModifier
     }
 
     fun update(dt: Float) {
         if (isPaused || isGameOver || isVictory) return
+
+        levelElapsedSec += dt
+        physics.gravityModifier = waveManager.currentLevelDef.gravityModifier
 
         // 1. Hit-stop freeze frame for impact feeling
         if (combat.hitStopTimer > 0f) {
@@ -143,6 +171,18 @@ class GameEngine {
 
         // 9. Wave Manager Update
         waveManager.update(dt, enemies, audio)
+        if (waveManager.waveState == WaveManager.WaveState.WAVE_CLEAR || waveManager.waveState == WaveManager.WaveState.VICTORY) {
+            if (lastRecordedClearedWave != waveManager.currentWaveIndex) {
+                lastRecordedClearedWave = waveManager.currentWaveIndex
+                val targetScore = waveManager.currentLevelDef.targetScoreFor3Stars
+                val stars = when {
+                    score >= targetScore && (player.hp / player.maxHp) >= 0.4f -> 3
+                    score >= (targetScore * 0.65f).toLong() -> 2
+                    else -> 1
+                }
+                onLevelCompletedCallback?.invoke(waveManager.currentWaveIndex, stars, score, levelElapsedSec)
+            }
+        }
         if (waveManager.waveState == WaveManager.WaveState.VICTORY) {
             isVictory = true
             player.action = StickmanAction.VICTORY
@@ -164,6 +204,7 @@ class GameEngine {
     }
 
     fun getSnapshot(): GameStateSnapshot {
+        val def = waveManager.currentLevelDef
         return GameStateSnapshot(
             player = player.copy(),
             enemies = enemies.map { it.copy() },
@@ -179,7 +220,16 @@ class GameEngine {
             score = score,
             isGameOver = isGameOver,
             isVictory = isVictory,
-            isBossActive = waveManager.isBossActive
+            isBossActive = waveManager.isBossActive,
+            levelNumber = def.levelNumber,
+            chapter = def.chapter,
+            chapterTitle = def.chapterTitle,
+            levelTitle = def.title,
+            levelSubtitle = def.subtitle,
+            arenaType = def.arenaType,
+            newFeatureIntro = def.newFeatureIntro,
+            targetScoreFor3Stars = def.targetScoreFor3Stars,
+            levelElapsedSec = levelElapsedSec
         )
     }
 }
