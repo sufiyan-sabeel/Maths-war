@@ -23,11 +23,14 @@ import com.example.model.GameMode
 import com.example.model.GameScreen
 import com.example.ui.screens.AchievementsScreen
 import com.example.ui.screens.ActionBattleScreen
-import com.example.ui.screens.BattleScreen
+import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.BossSelectScreen
 import com.example.ui.screens.CharacterCustomizationScreen
+import com.example.ui.screens.LeaderboardScreen
+import com.example.ui.screens.LevelSelectScreen
 import com.example.ui.screens.MainMenuScreen
 import com.example.ui.screens.PracticeModeScreen
+import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.WorldMapScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -65,7 +68,10 @@ class MainActivity : ComponentActivity() {
 fun MathBrawlApp(viewModel: GameViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     val profile by viewModel.profileFlow.collectAsState()
+    val userProfile by viewModel.userProfileFlow.collectAsState()
+    val authState by viewModel.authStateFlow.collectAsState()
     val achievements by viewModel.achievementsFlow.collectAsState()
+    val levels by viewModel.levelsFlow.collectAsState()
 
     AnimatedContent(
         targetState = uiState.currentScreen,
@@ -75,11 +81,46 @@ fun MathBrawlApp(viewModel: GameViewModel) {
         when (screen) {
             GameScreen.MAIN_MENU -> {
                 MainMenuScreen(
-                    profile = profile,
+                    userProfile = userProfile,
                     selectedSkin = uiState.selectedSkin,
                     animationTick = uiState.animationTick,
                     onNavigate = { viewModel.navigateTo(it) },
                     onStartBattle = { mode -> viewModel.startBattle(mode) }
+                )
+            }
+            GameScreen.AUTH -> {
+                AuthScreen(
+                    authManager = viewModel.authManager,
+                    authState = authState,
+                    onAuthSuccess = { viewModel.navigateTo(GameScreen.MAIN_MENU) },
+                    onNavigateBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                )
+            }
+            GameScreen.LEADERBOARD -> {
+                LeaderboardScreen(
+                    repository = viewModel.leaderboardRepository,
+                    currentProfile = userProfile,
+                    onNavigateBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                )
+            }
+            GameScreen.PROFILE -> {
+                ProfileScreen(
+                    profile = userProfile,
+                    onSignOut = {
+                        viewModel.authManager.signOut()
+                        viewModel.navigateTo(GameScreen.MAIN_MENU)
+                    },
+                    onOpenAuth = { viewModel.navigateTo(GameScreen.AUTH) },
+                    onNavigateBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
+                )
+            }
+            GameScreen.LEVEL_SELECT -> {
+                LevelSelectScreen(
+                    levelRecords = levels,
+                    onSelectLevel = { levelNum ->
+                        viewModel.startBattleLevel(levelNum)
+                    },
+                    onNavigateBack = { viewModel.navigateTo(GameScreen.MAIN_MENU) }
                 )
             }
             GameScreen.BATTLE -> {
@@ -140,7 +181,7 @@ fun MathBrawlApp(viewModel: GameViewModel) {
             }
             else -> {
                 MainMenuScreen(
-                    profile = profile,
+                    userProfile = userProfile,
                     selectedSkin = uiState.selectedSkin,
                     animationTick = uiState.animationTick,
                     onNavigate = { viewModel.navigateTo(it) },

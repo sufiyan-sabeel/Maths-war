@@ -60,16 +60,17 @@ fun ArcadeButton(
     modifier: Modifier = Modifier,
     primaryColor: Color = Color(0xFF00E5FF),
     icon: ImageVector? = null,
+    enabled: Boolean = true,
     testTag: String = "arcade_button"
 ) {
     Surface(
         modifier = modifier
             .testTag(testTag)
-            .clickable { onClick() },
+            .clickable(enabled = enabled) { onClick() },
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF14151E),
-        border = BorderStroke(1.5.dp, primaryColor.copy(alpha = 0.8f)),
-        shadowElevation = 4.dp
+        color = if (enabled) Color(0xFF14151E) else Color(0xFF0D0E12),
+        border = BorderStroke(1.5.dp, if (enabled) primaryColor.copy(alpha = 0.8f) else Color(0x306B7280)),
+        shadowElevation = if (enabled) 4.dp else 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -81,14 +82,14 @@ fun ArcadeButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = primaryColor,
+                    tint = if (enabled) primaryColor else Color(0xFF6B7280),
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
             }
             Text(
                 text = text.uppercase(),
-                color = Color.White,
+                color = if (enabled) Color.White else Color(0xFF6B7280),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,

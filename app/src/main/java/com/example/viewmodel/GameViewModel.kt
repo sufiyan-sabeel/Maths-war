@@ -8,8 +8,13 @@ import com.example.combat.BossManager
 import com.example.combat.CombatEngine
 import com.example.combat.WaveManager
 import com.example.data.GameRepository
+import com.example.data.LevelRecord
 import com.example.data.MathBrawlDatabase
 import com.example.data.PlayerProfileEntity
+import com.example.data.firebase.AuthManager
+import com.example.data.firebase.AuthState
+import com.example.data.firebase.LeaderboardRepository
+import com.example.data.firebase.UserProfile
 import com.example.math.MathQuestionEngine
 import com.example.model.Achievement
 import com.example.model.BossDefinition
@@ -24,7 +29,6 @@ import com.example.model.MathTopic
 import com.example.model.PlayerCombatState
 import com.example.model.StickmanPose
 import com.example.model.StickmanSkin
-import com.example.model.WorldData
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +67,10 @@ data class GameUiState(
     val practiceDifficulty: Difficulty = Difficulty.MEDIUM,
     val activeBoss: BossDefinition? = null,
     val selectedSkin: StickmanSkin = StickmanSkin.ALL_SKINS[0],
-    val animationTick: Float = 0f
+    val animationTick: Float = 0f,
+    val previousRank: Int = 500,
+    val currentRank: Int = 500,
+    val rankUpVisible: Boolean = false
 )
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
@@ -72,6 +79,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val db = MathBrawlDatabase.getInstance(application)
     private val repository = GameRepository(db.playerDao())
     val audioManager = AudioManager(application)
+    val authManager = AuthManager(application)
+    val leaderboardRepository = LeaderboardRepository()
+
     private val combatEngine = CombatEngine()
     private val waveManager = WaveManager()
     private val bossManager = BossManager()
@@ -82,13 +92,49 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val profileFlow: StateFlow<PlayerProfileEntity> = repository.playerProfileFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PlayerProfileEntity())
 
+    val userProfileFlow: StateFlow<UserProfile> = authManager.currentProfile
+
+    val authStateFlow: StateFlow<AuthState> = authManager.authState
+
     val achievementsFlow: StateFlow<List<Achievement>> = repository.achievementsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Achievement.DEFAULT_ACHIEVEMENTS)
+
+    val levelsFlow: StateFlow<List<LevelRecord>> = repository.allLevelsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var combatLoopJob: Job? = null
     private var timerJob: Job? = null
 
     init {
+        gameEngine.onLevelCompletedCallback = { levelNum, stars, score, timeSec ->
+            viewModelScope.launch {
+                val oldRank = authManager.currentProfile.value.rank
+                repository.recordLevelCompleted(levelNum, stars, score, timeSec)
+                repository.recordCombatResult(
+                    scoreGained = score,
+                    maxComboAchieved = gameEngine.player.comboCount,
+                    answeredCount = 3,
+                    correctCount = 3,
+                    waveReached = levelNum,
+                    xpGained = stars * 150
+                )
+                authManager.updateProfileStats(
+                    scoreGained = score,
+                    xpGained = stars * 150,
+                    levelCompleted = levelNum,
+                    starsEarned = stars
+                )
+                val newRank = authManager.currentProfile.value.rank
+                if (newRank < oldRank) {
+                    _uiState.value = _uiState.value.copy(
+                        previousRank = oldRank,
+                        currentRank = newRank,
+                        rankUpVisible = true
+                    )
+                }
+            }
+        }
+
         viewModelScope.launch {
             val p = repository.getProfile()
             val skin = StickmanSkin.ALL_SKINS.find { it.id == p.selectedSkinId } ?: StickmanSkin.ALL_SKINS[0]
@@ -134,7 +180,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     activeParticles = agedParticles,
                     floatingTexts = agedTexts
                 )
-                delay(33) // ~30 fps tick for math particles
+                delay(33) // ~30 fps tick
             }
         }
     }
@@ -252,6 +298,26 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         loadNextQuestion()
     }
 
+    fun startBattleLevel(levelNumber: Int) {
+        audioManager.playButtonClick()
+        audioManager.startBgm()
+        val skin = _uiState.value.selectedSkin
+        gameEngine.player.primaryColor = skin.primaryColor
+        gameEngine.player.energyColor = skin.auraColor
+        gameEngine.resetGame(levelNumber)
+
+        _uiState.value = _uiState.value.copy(
+            currentScreen = GameScreen.BATTLE,
+            selectedMode = GameMode.STORY,
+            currentWave = levelNumber,
+            score = 0L,
+            combo = 0,
+            isPaused = false,
+            isGameOver = false,
+            isVictory = false
+        )
+    }
+
     private fun loadNextQuestion() {
         val state = _uiState.value
         val question = when (state.selectedMode) {
@@ -308,7 +374,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
             if (remainingMs <= 0 && isActive && !_uiState.value.isGameOver && !_uiState.value.isVictory) {
-                // Time up = incorrect answer
                 onAnswerSelected(-1)
             }
         }
@@ -317,7 +382,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onAnswerSelected(choiceIndex: Int) {
         val state = _uiState.value
         val question = state.currentQuestion ?: return
-        if (state.selectedAnswerIdx != null || state.isGameOver || state.isVictory) return // already answered
+        if (state.selectedAnswerIdx != null || state.isGameOver || state.isVictory) return
 
         timerJob?.cancel()
         val isCorrect = choiceIndex == question.correctIndex
@@ -361,16 +426,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
                 checkAchievements(newCombo, 1)
 
-                delay(800) // view attack impact
+                delay(800)
 
                 if (result.isEnemyDefeated) {
                     handleEnemyDefeated()
                 } else {
-                    // Boss phase check
                     if (state.enemy?.isBoss == true && result.updatedEnemy.hp <= (result.updatedEnemy.maxHp * (result.updatedEnemy.totalPhases - result.updatedEnemy.currentPhase) / result.updatedEnemy.totalPhases)) {
                         advanceBossPhase()
                     } else {
-                        // Reset player pose to IDLE and continue
                         _uiState.value = _uiState.value.copy(
                             player = _uiState.value.player.copy(currentPose = StickmanPose.IDLE),
                             enemy = _uiState.value.enemy?.copy(pose = StickmanPose.IDLE)
@@ -438,7 +501,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             )
             saveSessionResults(true)
         } else {
-            // Next Wave
             val nextWave = state.currentWave + 1
             audioManager.playVictory()
             val waveConfig = waveManager.generateWave(nextWave)
@@ -449,7 +511,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 enemy = newEnemy,
                 player = state.player.copy(
                     currentPose = StickmanPose.IDLE,
-                    hp = minOf(state.player.maxHp, state.player.hp + 25f) // wave clear heal
+                    hp = minOf(state.player.maxHp, state.player.hp + 25f)
                 )
             )
             loadNextQuestion()
@@ -476,6 +538,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 correctCount = state.totalCorrectSession,
                 waveReached = state.currentWave,
                 xpGained = xpEarned
+            )
+            authManager.updateProfileStats(
+                scoreGained = state.score,
+                xpGained = xpEarned,
+                levelCompleted = state.currentWave,
+                starsEarned = if (isWin) 3 else 1
             )
         }
     }

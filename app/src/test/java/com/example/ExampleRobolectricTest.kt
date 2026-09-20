@@ -28,7 +28,30 @@ class ExampleRobolectricTest {
     fun `read string from context`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("Math War", appName)
+        assertEquals("MATHS WAR", appName)
+    }
+
+    @Test
+    fun `rank tier calculation works across all rank ranges`() {
+        assertEquals(com.example.data.firebase.RankTier.CELESTIAL, com.example.data.firebase.RankTier.fromRank(1))
+        assertEquals(com.example.data.firebase.RankTier.CELESTIAL, com.example.data.firebase.RankTier.fromRank(10))
+        assertEquals(com.example.data.firebase.RankTier.GRANDMASTER, com.example.data.firebase.RankTier.fromRank(11))
+        assertEquals(com.example.data.firebase.RankTier.MASTER, com.example.data.firebase.RankTier.fromRank(50))
+        assertEquals(com.example.data.firebase.RankTier.DIAMOND, com.example.data.firebase.RankTier.fromRank(150))
+        assertEquals(com.example.data.firebase.RankTier.PLATINUM, com.example.data.firebase.RankTier.fromRank(300))
+        assertEquals(com.example.data.firebase.RankTier.GOLD, com.example.data.firebase.RankTier.fromRank(500))
+        assertEquals(com.example.data.firebase.RankTier.SILVER, com.example.data.firebase.RankTier.fromRank(1000))
+        assertEquals(com.example.data.firebase.RankTier.BRONZE, com.example.data.firebase.RankTier.fromRank(2500))
+    }
+
+    @Test
+    fun `auth manager provides guest profile with unique rank`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val authManager = com.example.data.firebase.AuthManager(context)
+        authManager.playAsGuest("Hero")
+        val profile = authManager.currentProfile.value
+        assertEquals("Hero", profile.username)
+        assertTrue(profile.rank in 1..500)
     }
 
     @Test

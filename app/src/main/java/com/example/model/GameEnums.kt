@@ -16,6 +16,8 @@ enum class GameMode(val title: String, val description: String) {
  */
 enum class GameScreen {
     MAIN_MENU,
+    AUTH,
+    LEVEL_SELECT,
     MODE_SELECT,
     WORLD_MAP,
     BATTLE,
@@ -23,6 +25,8 @@ enum class GameScreen {
     BOSS_SELECT,
     CHARACTERS,
     ACHIEVEMENTS,
+    LEADERBOARD,
+    PROFILE,
     SETTINGS
 }
 

@@ -3,48 +3,46 @@ package com.example.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.PlayerProfileEntity
+import com.example.data.firebase.RankTier
+import com.example.data.firebase.UserProfile
 import com.example.model.GameMode
 import com.example.model.GameScreen
 import com.example.model.StickmanPose
@@ -55,192 +53,198 @@ import com.example.ui.render.StickmanRenderer
 
 @Composable
 fun MainMenuScreen(
-    profile: PlayerProfileEntity,
+    userProfile: UserProfile,
     selectedSkin: StickmanSkin,
     animationTick: Float,
     onNavigate: (GameScreen) -> Unit,
     onStartBattle: (GameMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val rankTier = RankTier.fromRank(userProfile.rank)
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF0D0E12))
+            .padding(16.dp)
     ) {
-        // Canvas background with math grid
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            ArenaBackgroundRenderer.drawWorldEnvironment(this, 1, animationTick)
-            // Draw idle preview stickman warrior in center background
-            StickmanRenderer.drawStickman(
-                scope = this,
-                centerX = size.width * 0.5f,
-                centerY = size.height * 0.36f,
-                scale = 1.1f,
-                pose = StickmanPose.IDLE,
-                color = selectedSkin.primaryColor,
-                auraColor = selectedSkin.auraColor,
-                isFacingRight = true,
-                animationTick = animationTick,
-                isMathRage = false
-            )
-        }
-
-        // Foreground UI
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-                .widthIn(max = 600.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+        // Horizontal Split Layout: Left (Stickman Combat Arena Preview & Profile Card), Right (Game Modes & Menus)
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header with Player Level & XP Badge
-            Row(
+            // Left Panel: Fighter Showcase, Title, & Profile Summary
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xD014161E))
+                    .border(1.dp, Color(0x356B7280), RoundedCornerShape(12.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
+                // Top Title & Subtitle
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xD014161E))
-                        .border(1.dp, Color(0x356B7280), RoundedCornerShape(20.dp))
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE67E22)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${profile.level}",
-                            color = Color(0xFF0D0E12),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
-                            text = "LVL ${profile.level}",
+                            text = "MATHS WAR",
                             color = Color(0xFFF0F0F5),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.5.sp
                         )
                         Text(
-                            text = "${profile.xp % 500}/500 XP",
-                            color = Color(0xFF8A8D98),
-                            fontSize = 9.sp,
-                            fontFamily = FontFamily.Monospace
+                            text = "2D ACTION COMBAT",
+                            color = Color(0xFFE67E22),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    // Profile / Identity Tag (Clickable to go to Profile)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF0D0E12))
+                            .border(1.dp, Color(0x356B7280), RoundedCornerShape(16.dp))
+                            .clickable { onNavigate(GameScreen.PROFILE) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .testTag("menu_btn_profile_tag")
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color(rankTier.colorHex)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${userProfile.level}",
+                                color = Color(0xFF0D0E12),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = userProfile.username,
+                                color = Color(0xFFF0F0F5),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "#${userProfile.rank} • ${rankTier.title.take(6)}",
+                                color = Color(rankTier.colorHex),
+                                fontSize = 8.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                // Interactive Stickman Fighter Showcase Canvas
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(vertical = 4.dp)
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        ArenaBackgroundRenderer.drawWorldEnvironment(this, 1, animationTick)
+                        StickmanRenderer.drawStickman(
+                            scope = this,
+                            centerX = size.width * 0.5f,
+                            centerY = size.height * 0.52f,
+                            scale = 1.25f,
+                            pose = StickmanPose.IDLE,
+                            color = selectedSkin.primaryColor,
+                            auraColor = selectedSkin.auraColor,
+                            isFacingRight = true,
+                            animationTick = animationTick,
+                            isMathRage = false
                         )
                     }
                 }
 
-                // High score badge
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "HIGH SCORE",
-                        color = Color(0xFF8A8D98),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        text = "${profile.highScore}",
-                        color = Color(0xFFE67E22),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                // Bottom Left Score & Stats Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF0D0E12))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "TOTAL SCORE", color = Color(0xFF8A8D98), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        Text(text = "${userProfile.totalScore}", color = Color(0xFFE67E22), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(text = "CLEARED LEVELS", color = Color(0xFF8A8D98), fontSize = 8.sp, fontFamily = FontFamily.Monospace)
+                        Text(text = "${userProfile.completedLevels} / 52", color = Color(0xFF2ECC71), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Game Logo: MATH//WAR
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // Right Panel: Primary Mode Navigation Grid
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xD014161E))
+                    .border(1.dp, Color(0x356B7280), RoundedCornerShape(12.dp))
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
-                    text = "MATH//WAR",
-                    color = Color(0xFFF0F0F5),
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 2.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "WHEN NUMBERS FIGHT BACK",
-                    color = Color(0xFFE67E22),
-                    fontSize = 11.sp,
+                    text = "SELECT ENGAGEMENT",
+                    color = Color(0xFF8A8D98),
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    letterSpacing = 1.5.sp,
-                    textAlign = TextAlign.Center
+                    letterSpacing = 1.sp
                 )
-            }
 
-            Spacer(modifier = Modifier.height(130.dp)) // Leave room for preview stickman
-
-            // Menu Action Buttons
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Primary PLAY Button (Quick Wave Mode)
+                // Main Campaign Button (52 Levels across 5 Worlds)
                 ArcadeButton(
-                    text = "PLAY NOW",
-                    onClick = { onStartBattle(GameMode.WAVE) },
+                    text = "CAMPAIGN (52 LEVELS)",
+                    onClick = { onNavigate(GameScreen.LEVEL_SELECT) },
                     modifier = Modifier.fillMaxWidth(),
                     primaryColor = Color(0xFFE67E22),
                     icon = Icons.Default.PlayArrow,
-                    testTag = "btn_play"
+                    testTag = "btn_campaign"
                 )
 
-                // 2-Column Buttons for Modes
+                // Quick Brawl & Boss Arena Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ArcadeButton(
-                        text = "STORY",
-                        onClick = { onNavigate(GameScreen.WORLD_MAP) },
-                        modifier = Modifier.weight(1f),
-                        primaryColor = Color(0xFF374151),
-                        icon = Icons.Default.Map,
-                        testTag = "btn_story"
-                    )
-                    ArcadeButton(
-                        text = "WAVE",
+                        text = "QUICK BRAWL",
                         onClick = { onStartBattle(GameMode.WAVE) },
                         modifier = Modifier.weight(1f),
                         primaryColor = Color(0xFF374151),
                         icon = Icons.Default.Waves,
-                        testTag = "btn_wave"
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ArcadeButton(
-                        text = "PRACTICE",
-                        onClick = { onNavigate(GameScreen.PRACTICE_CONFIG) },
-                        modifier = Modifier.weight(1f),
-                        primaryColor = Color(0xFF374151),
-                        icon = Icons.Default.FitnessCenter,
-                        testTag = "btn_practice"
+                        testTag = "btn_quick_brawl"
                     )
                     ArcadeButton(
-                        text = "BOSSES",
+                        text = "BOSS ARENA",
                         onClick = { onNavigate(GameScreen.BOSS_SELECT) },
                         modifier = Modifier.weight(1f),
                         primaryColor = Color(0xFF374151),
@@ -249,12 +253,36 @@ fun MainMenuScreen(
                     )
                 }
 
+                // Leaderboard & Practice Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     ArcadeButton(
-                        text = "CHARACTERS",
+                        text = "TOP 300 RANKS",
+                        onClick = { onNavigate(GameScreen.LEADERBOARD) },
+                        modifier = Modifier.weight(1f),
+                        primaryColor = Color(0xFF2980B9),
+                        icon = Icons.Default.Leaderboard,
+                        testTag = "btn_leaderboard"
+                    )
+                    ArcadeButton(
+                        text = "PRACTICE",
+                        onClick = { onNavigate(GameScreen.PRACTICE_CONFIG) },
+                        modifier = Modifier.weight(1f),
+                        primaryColor = Color(0xFF374151),
+                        icon = Icons.Default.FitnessCenter,
+                        testTag = "btn_practice"
+                    )
+                }
+
+                // Characters & Profile Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArcadeButton(
+                        text = "SKINS",
                         onClick = { onNavigate(GameScreen.CHARACTERS) },
                         modifier = Modifier.weight(1f),
                         primaryColor = Color(0xFF374151),
@@ -267,28 +295,33 @@ fun MainMenuScreen(
                         modifier = Modifier.weight(1f),
                         primaryColor = Color(0xFF374151),
                         icon = Icons.Default.EmojiEvents,
-                        testTag = "btn_achievements"
+                        testTag = "btn_trophies"
                     )
                 }
 
-                ArcadeButton(
-                    text = "SETTINGS",
-                    onClick = { onNavigate(GameScreen.SETTINGS) },
+                // Settings & Profile Row
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    primaryColor = Color(0xFF2A2D37),
-                    icon = Icons.Default.Settings,
-                    testTag = "btn_settings"
-                )
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ArcadeButton(
+                        text = "PROFILE",
+                        onClick = { onNavigate(GameScreen.PROFILE) },
+                        modifier = Modifier.weight(1f),
+                        primaryColor = Color(0xFF2A2D37),
+                        icon = Icons.Default.Person,
+                        testTag = "btn_profile"
+                    )
+                    ArcadeButton(
+                        text = "SETTINGS",
+                        onClick = { onNavigate(GameScreen.SETTINGS) },
+                        modifier = Modifier.weight(1f),
+                        primaryColor = Color(0xFF2A2D37),
+                        icon = Icons.Default.Settings,
+                        testTag = "btn_settings"
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "v1.0 // ORIGINAL NATIVE ENGINE // NO ADS",
-                color = Color(0xFF6B7280),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-            )
         }
     }
 }
