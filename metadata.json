@@ -1,0 +1,6 @@
+{
+  "name": "MATHS WAR",
+  "description": "Fast, cinematic 2D stickman fighting game where mathematics becomes a living combat system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
