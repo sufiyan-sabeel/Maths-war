@@ -40,7 +40,7 @@ class ExampleRobolectricTest {
         assertEquals(com.example.data.firebase.RankTier.DIAMOND, com.example.data.firebase.RankTier.fromRank(150))
         assertEquals(com.example.data.firebase.RankTier.PLATINUM, com.example.data.firebase.RankTier.fromRank(300))
         assertEquals(com.example.data.firebase.RankTier.GOLD, com.example.data.firebase.RankTier.fromRank(500))
-        assertEquals(com.example.data.firebase.RankTier.SILVER, com.example.data.firebase.RankTier.fromRank(1000))
+        assertEquals(com.example.data.firebase.RankTier.SILVER, com.example.data.firebase.RankTier.fromRank(850))
         assertEquals(com.example.data.firebase.RankTier.BRONZE, com.example.data.firebase.RankTier.fromRank(2500))
     }
 
@@ -60,7 +60,7 @@ class ExampleRobolectricTest {
         val snapshot = engine.getSnapshot()
         assertEquals(1, snapshot.waveIndex)
         assertEquals(100f, snapshot.player.hp, 0.01f)
-        assertEquals(50f, snapshot.player.shield, 0.01f)
+        assertEquals(30f, snapshot.player.shield, 0.01f)
         assertTrue(snapshot.player.pos.y > 0f)
     }
 

@@ -27,7 +27,13 @@ class GreetingScreenshotTest {
         composeTestRule.setContent {
             MyApplicationTheme {
                 MainMenuScreen(
-                    profile = PlayerProfileEntity(level = 3, xp = 450, highScore = 12500),
+                    userProfile = com.example.data.firebase.UserProfile(
+                        username = "Hero",
+                        displayName = "Hero",
+                        level = 3,
+                        xp = 450,
+                        totalScore = 12500L
+                    ),
                     selectedSkin = StickmanSkin.ALL_SKINS[0],
                     animationTick = 1.0f,
                     onNavigate = {},

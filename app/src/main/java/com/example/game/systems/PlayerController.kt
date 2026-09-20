@@ -113,6 +113,7 @@ class PlayerController {
                 player.actionTimer = 0.20f
                 player.attackHitboxActive = true
                 player.hasHitCurrentAttack = false
+                player.comboCount = 1
                 player.vel.x = if (player.isFacingRight) 60f else -60f
                 audio.playPunchSwing()
             }
@@ -121,6 +122,7 @@ class PlayerController {
                 player.actionTimer = 0.22f
                 player.attackHitboxActive = true
                 player.hasHitCurrentAttack = false
+                player.comboCount = 2
                 player.vel.x = if (player.isFacingRight) 90f else -90f
                 audio.playPunchSwing()
             }
@@ -129,6 +131,7 @@ class PlayerController {
                 player.actionTimer = 0.26f
                 player.attackHitboxActive = true
                 player.hasHitCurrentAttack = false
+                player.comboCount = 3
                 player.vel.x = if (player.isFacingRight) 140f else -140f
                 audio.playKickSwing()
             }
@@ -137,6 +140,7 @@ class PlayerController {
                 player.actionTimer = 0.35f
                 player.attackHitboxActive = true
                 player.hasHitCurrentAttack = false
+                player.comboCount = 4
                 player.vel.x = if (player.isFacingRight) 220f else -220f
                 audio.playHeavySwing()
             }
