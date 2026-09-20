@@ -2,92 +2,108 @@ name: Android CI & APK Build
 
 on:
   push:
-    branches: [ main, master ]
-    tags: [ 'v*' ]
+    branches:
+      - main
+      - master
+
   pull_request:
-    branches: [ main, master ]
+
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build, Test & Package APK
+    name: Build Maths War APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Setup Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
 
-      - name: Make Gradlew Executable
-        run: chmod +x gradlew
+      - name: Make Gradle Executable
+        run: chmod +x ./gradlew
 
-      - name: Configure Environment
+      - name: Setup Environment File
         run: |
           if [ ! -f .env ]; then
             cp .env.example .env 2>/dev/null || touch .env
           fi
 
-      - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
-
-      - name: Build Debug & Release APK
+      - name: Verify Android Environment
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          java -version
+          ./gradlew --version
+          sdkmanager --version
+          adb version
+
+      - name: Show Installed Android SDK
+        run: |
+          sdkmanager --list_installed
+
+      - name: Run Unit Tests
+        run: ./gradlew test --no-daemon
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Find APKs
+        run: |
+          echo "Generated APK files:"
+          find . -type f -name "*.apk" -print
 
       - name: Verify APK Generation
+        shell: bash
         run: |
-          mkdir -p build-apk-output
-          APK_DEBUG=$(find app/build/outputs/apk/debug -type f -name "*.apk" 2>/dev/null | head -n 1)
-          APK_RELEASE=$(find app/build/outputs/apk/release -type f -name "*.apk" 2>/dev/null | head -n 1)
-          if [ -n "$APK_DEBUG" ]; then
-            cp "$APK_DEBUG" build-apk-output/Maths-War-debug.apk
-            echo "Found debug APK: $APK_DEBUG"
-          fi
-          if [ -n "$APK_RELEASE" ]; then
-            cp "$APK_RELEASE" build-apk-output/Maths-War-release.apk
-            echo "Found release APK: $APK_RELEASE"
-          fi
-          ls -la build-apk-output/
+          set -e
 
-      - name: Upload Debug APK Artifact
+          DEBUG_APK=$(find . -type f -name "*debug*.apk" | head -n 1)
+          RELEASE_APK=$(find . -type f -name "*release*.apk" | head -n 1)
+
+          if [ -z "$DEBUG_APK" ]; then
+            echo "ERROR: Debug APK was not generated."
+            exit 1
+          fi
+
+          if [ -z "$RELEASE_APK" ]; then
+            echo "ERROR: Release APK was not generated."
+            exit 1
+          fi
+
+          echo "Debug APK:"
+          ls -lh "$DEBUG_APK"
+
+          echo "Release APK:"
+          ls -lh "$RELEASE_APK"
+
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Maths-War-debug-APK
-          path: build-apk-output/Maths-War-debug.apk
+          name: maths-war-debug
+          path: "**/*debug*.apk"
           if-no-files-found: error
 
-      - name: Upload Release APK Artifact
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: Maths-War-release-APK
-          path: build-apk-output/Maths-War-release.apk
+          name: maths-war-release
+          path: "**/*release*.apk"
           if-no-files-found: error
-
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "Maths War Release ${{ github.ref_name }}"
-          tag_name: ${{ github.ref }}
-          files: build-apk-output/*.apk
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -2,20 +2,13 @@ name: Build and Release Maths War APK
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build & Test Maths War APK
+  build_and_release:
+    name: Build & Release Maths War APK
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -26,54 +19,57 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Setup Android SDK
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
 
-      - name: Make Gradlew Executable
-        run: chmod +x gradlew
+      - name: Make Gradle Executable
+        run: chmod +x ./gradlew
 
-      - name: Setup Environment Files
+      - name: Setup Environment File
         run: |
           if [ ! -f .env ]; then
             cp .env.example .env 2>/dev/null || touch .env
           fi
 
       - name: Run Unit Tests
-        run: |
-          ./gradlew testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew test --no-daemon
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Build Release APK
-        run: |
-          ./gradlew assembleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Verify and Package APK
         run: |
           mkdir -p release-artifacts
-          APK_RELEASE=$(find app/build/outputs/apk/release -type f -name "*.apk" 2>/dev/null | head -n 1)
-          if [ -z "$APK_RELEASE" ]; then
-            echo "ERROR: No release APK was produced during build!"
+          RELEASE_APK=$(find app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+          if [ -z "$RELEASE_APK" ]; then
+            echo "ERROR: Release APK was not generated."
             exit 1
           fi
-          echo "Found Release APK: $APK_RELEASE"
-          cp "$APK_RELEASE" release-artifacts/Maths-War-v1.0.0.apk
+
+          echo "Found Release APK: $RELEASE_APK"
+          cp "$RELEASE_APK" release-artifacts/Maths-War-v1.0.0.apk
           ls -lh release-artifacts/Maths-War-v1.0.0.apk
 
-      - name: Upload APK Artifact
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Maths-War-v1.0.0-APK
+          name: maths-war-v1.0.0-apk
           path: release-artifacts/Maths-War-v1.0.0.apk
           if-no-files-found: error
-          retention-days: 30
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
