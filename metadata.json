@@ -1,6 +1,8 @@
 {
-  "name": "MATHS WAR",
-  "description": "Fast, cinematic 2D stickman fighting game where mathematics becomes a living combat system.",
+  "name": "Maths War",
+  "description": "An action-packed physics-based math brawler game where solving equations fires elemental spells, defeats mathematical monsters, and conquers 50 campaign arenas.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
