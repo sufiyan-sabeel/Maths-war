@@ -41,6 +41,10 @@ jobs:
           if [ ! -f .env ]; then
             cp .env.example .env 2>/dev/null || touch .env
           fi
+          mkdir -p ~/.android
+          if [ -f ./debug.keystore ]; then
+            cp ./debug.keystore ~/.android/debug.keystore
+          fi
 
       - name: Run Unit Tests
         run: ./gradlew test --no-daemon
@@ -54,7 +58,7 @@ jobs:
       - name: Verify and Package APK
         run: |
           mkdir -p release-artifacts
-          RELEASE_APK=$(find app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+          RELEASE_APK=$(find app/build/outputs/apk -type f -name "*release*.apk" | head -n 1)
           if [ -z "$RELEASE_APK" ]; then
             echo "ERROR: Release APK was not generated."
             exit 1

@@ -31,6 +31,17 @@ data class BoundingBox(
     }
 }
 
+enum class ArenaType {
+    NUMBER_LAB,
+    EQUATION_FACTORY,
+    GEOMETRY_RUINS,
+    ALGEBRA_CITY,
+    INFINITE_GRID,
+    FUNCTION_CHAMBER,
+    GRAVITY_ARENA,
+    FINAL_EQUATION_CORE
+}
+
 enum class StickmanAction {
     IDLE,
     RUN,

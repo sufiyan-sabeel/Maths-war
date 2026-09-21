@@ -29,3 +29,14 @@ data class AchievementRecord(
     val target: Int,
     val unlocked: Boolean
 )
+
+@Entity(tableName = "levels")
+data class LevelRecord(
+    @PrimaryKey val levelNumber: Int,
+    val stars: Int = 0,
+    val highScore: Long = 0L,
+    val bestTimeSec: Float = 0f,
+    val isUnlocked: Boolean = false,
+    val isCompleted: Boolean = false
+)
+

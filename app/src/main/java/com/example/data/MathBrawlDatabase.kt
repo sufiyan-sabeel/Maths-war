@@ -6,8 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [PlayerProfileEntity::class, AchievementRecord::class],
-    version = 1,
+    entities = [PlayerProfileEntity::class, AchievementRecord::class, LevelRecord::class],
+    version = 3,
     exportSchema = false
 )
 abstract class MathBrawlDatabase : RoomDatabase() {
@@ -23,7 +23,10 @@ abstract class MathBrawlDatabase : RoomDatabase() {
                     context.applicationContext,
                     MathBrawlDatabase::class.java,
                     "math_brawl_db"
-                ).fallbackToDestructiveMigration().build()
+                )
+                    .fallbackToDestructiveMigration(true)
+                    .fallbackToDestructiveMigrationOnDowngrade(true)
+                    .build()
                 INSTANCE = instance
                 instance
             }

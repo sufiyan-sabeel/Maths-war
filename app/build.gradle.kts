@@ -33,6 +33,15 @@ android {
     val hasUploadKeystore = uploadFile.exists()
     val hasDebugKeystore = debugFile.exists()
 
+    getByName("debug") {
+      if (hasDebugKeystore) {
+        storeFile = debugFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
+    }
+
     create("release") {
       if (hasCustomKeystore) {
         storeFile = customFile
@@ -51,14 +60,6 @@ android {
         keyPassword = "android"
       }
     }
-    create("debugConfig") {
-      if (hasDebugKeystore) {
-        storeFile = debugFile
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
-      }
-    }
   }
 
   buildTypes {
@@ -66,14 +67,9 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      val relConfig = signingConfigs.getByName("release")
-      if (relConfig.storeFile?.exists() == true) {
-        signingConfig = relConfig
-      } else {
-        signingConfig = signingConfigs.getByName("debugConfig")
-      }
+      signingConfig = signingConfigs.getByName("debug")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug { signingConfig = signingConfigs.getByName("debug") }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11

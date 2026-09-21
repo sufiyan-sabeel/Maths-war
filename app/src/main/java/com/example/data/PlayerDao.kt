@@ -25,4 +25,16 @@ interface PlayerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveAchievement(record: AchievementRecord)
+
+    @Query("SELECT * FROM levels ORDER BY levelNumber ASC")
+    fun getAllLevelsFlow(): Flow<List<LevelRecord>>
+
+    @Query("SELECT * FROM levels WHERE levelNumber = :lvl LIMIT 1")
+    suspend fun getLevel(lvl: Int): LevelRecord?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveLevel(level: LevelRecord)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveLevels(levels: List<LevelRecord>)
 }

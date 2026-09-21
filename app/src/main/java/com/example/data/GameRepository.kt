@@ -72,4 +72,37 @@ class GameRepository(private val dao: PlayerDao) {
         )
         saveProfile(updated)
     }
+
+    val allLevelsFlow: Flow<List<LevelRecord>> = dao.getAllLevelsFlow().map { records ->
+        if (records.isEmpty()) {
+            (1..50).map { lvl ->
+                LevelRecord(levelNumber = lvl, isUnlocked = lvl == 1)
+            }
+        } else {
+            val map = records.associateBy { it.levelNumber }
+            (1..50).map { lvl ->
+                map[lvl] ?: LevelRecord(levelNumber = lvl, isUnlocked = lvl == 1)
+            }
+        }
+    }
+
+    suspend fun recordLevelCompleted(levelNum: Int, stars: Int, score: Long, timeSec: Float) {
+        val existing = dao.getLevel(levelNum)
+        val updated = LevelRecord(
+            levelNumber = levelNum,
+            stars = maxOf(existing?.stars ?: 0, stars),
+            highScore = maxOf(existing?.highScore ?: 0L, score),
+            bestTimeSec = if (existing != null && existing.bestTimeSec > 0f) minOf(existing.bestTimeSec, timeSec) else timeSec,
+            isUnlocked = true,
+            isCompleted = true
+        )
+        dao.saveLevel(updated)
+        // Unlock next level if exists
+        if (levelNum < 50) {
+            val next = dao.getLevel(levelNum + 1)
+            if (next == null || !next.isUnlocked) {
+                dao.saveLevel(LevelRecord(levelNumber = levelNum + 1, isUnlocked = true))
+            }
+        }
+    }
 }

@@ -5,9 +5,7 @@ on:
     branches:
       - main
       - master
-
   pull_request:
-
   workflow_dispatch:
 
 jobs:
@@ -16,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -42,6 +39,10 @@ jobs:
           if [ ! -f .env ]; then
             cp .env.example .env 2>/dev/null || touch .env
           fi
+          mkdir -p ~/.android
+          if [ -f ./debug.keystore ]; then
+            cp ./debug.keystore ~/.android/debug.keystore
+          fi
 
       - name: Verify Android Environment
         run: |
@@ -52,10 +53,6 @@ jobs:
           sdkmanager --version
           adb version
 
-      - name: Show Installed Android SDK
-        run: |
-          sdkmanager --list_installed
-
       - name: Run Unit Tests
         run: ./gradlew test --no-daemon
 
@@ -65,15 +62,12 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Find APKs
-        run: |
-          echo "Generated APK files:"
-          find . -type f -name "*.apk" -print
-
-      - name: Verify APK Generation
+      - name: Find and Verify APK Generation
         shell: bash
         run: |
           set -e
+          echo "Generated APK files:"
+          find . -type f -name "*.apk" -exec ls -lh {} +
 
           DEBUG_APK=$(find . -type f -name "*debug*.apk" | head -n 1)
           RELEASE_APK=$(find . -type f -name "*release*.apk" | head -n 1)
@@ -88,11 +82,8 @@ jobs:
             exit 1
           fi
 
-          echo "Debug APK:"
-          ls -lh "$DEBUG_APK"
-
-          echo "Release APK:"
-          ls -lh "$RELEASE_APK"
+          echo "Successfully verified Debug APK: $DEBUG_APK"
+          echo "Successfully verified Release APK: $RELEASE_APK"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4

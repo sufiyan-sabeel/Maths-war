@@ -39,6 +39,8 @@ class WaveManager(
     val currentWaveTitle: String get() = currentConfig.title
     val currentWaveSubtitle: String get() = currentConfig.subtitle
     val isBossActive: Boolean get() = currentConfig.isBossWave
+    val currentLevelDef: com.example.game.levels.LevelDefinition
+        get() = com.example.game.levels.LevelDefinitions.getLevel(currentWaveIndex)
 
     fun startWave(waveNum: Int, audio: AudioSystem) {
         currentWaveIndex = waveNum

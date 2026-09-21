@@ -13,6 +13,7 @@ class PhysicsSystem(
     val ceilingY: Float = 80f
 ) {
     val gravity: Float = 1400f // pixels / sec^2
+    var gravityModifier: Float = 1.0f
     val friction: Float = 0.85f
     val airDrag: Float = 0.96f
 
@@ -43,7 +44,7 @@ class PhysicsSystem(
         } else {
             // Apply gravity if in air
             if (!player.isGrounded) {
-                player.vel.y += gravity * dt
+                player.vel.y += gravity * gravityModifier * dt
                 player.vel.x *= airDrag
             } else {
                 player.vel.x *= friction
